@@ -8,8 +8,7 @@ import {
 } from './types';
 
 config();
-const QUERY_INTERVAL = 3600000;
-//const QUERY_INTERVAL = 3600000000;
+const QUERY_INTERVAL = 3600000 * 2;
 
 
 async function main() {
@@ -111,8 +110,11 @@ async function main() {
       const debtToken = tokensResponseBody.data!.tokens.find(
         (token) => token.contractAddress === event?.debt_token
       )!;
-      const collateralAmount = Number(event.collateral_liquidated) 
-        / 10 ** collateralToken.Asset.decimals;
+      let collateralAmountUdenom = Number(event.collateral_liquidated); 
+      if(event.collateral_sold !== undefined) {
+        collateralAmountUdenom = Number(event.collateral_sold);
+      }
+      const collateralAmount = collateralAmountUdenom/ 10 ** collateralToken.Asset.decimals;
       const debtAmount = Number(event.debt_repaid) / 10 ** debtToken.Asset.decimals;
       const collateralValue = Number(event.collateral_price) * collateralAmount;
       const debtValue = Number(event.debt_price) * debtAmount;
@@ -128,40 +130,40 @@ async function main() {
         body += "🏦 *Protocol Profit*: $" + feeCollateralValue.toFixed(2) 
           + " " + collateralToken.symbol + "\n";
       }
-      if(event?.debt_protocol_fee !== undefined) {
-        const feeDebtAmount = Number(event.debt_protocol_fee) / 10 ** debtToken.Asset.decimals;
-        const feeDebtValue = Number(event.debt_price) * feeDebtAmount;
+      if(event?.debt_purchased !== undefined) {
+        const debtPurchased = Number(event.debt_purchased) / 10 ** debtToken.Asset.decimals;
+        const debtPurchasedValue = debtPurchased * Number(event.debt_price);
+        const feeDebtValue = (debtPurchasedValue - debtValue) * 0.9;
         body += "🏦 *Protocol Profit*: $" + feeDebtValue.toFixed(2) + " " + debtToken.symbol + "\n";
       }
     }
 
-    await fetch(
-      `https://api.telegram.org/bot${process.env.BOT_TOKEN!}/sendMessage`, 
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-            chat_id: process.env.SISSONJ_CHAT_ID,
-            text: body,
-            parse_mode: "Markdown"
-        })
-    });
+    if(!notifications.includes(log.id)) {
 
-    const shadeTgResponse = await fetch(
-      `https://api.telegram.org/bot${process.env.BOT_TOKEN!}/sendMessage`, 
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-            chat_id: process.env.SHADE_CHAT_ID,
-            text: body,
-            parse_mode: "Markdown"
-        })
-    });
-
-    const shadeData = await shadeTgResponse.json();
-    if(shadeData.ok) {
       notifications.push(log.id);
+      await fetch(
+        `https://api.telegram.org/bot${process.env.BOT_TOKEN!}/sendMessage`, 
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+              chat_id: process.env.SISSONJ_CHAT_ID,
+              text: body,
+              parse_mode: "Markdown"
+          })
+      });
+
+      await fetch(
+        `https://api.telegram.org/bot${process.env.BOT_TOKEN!}/sendMessage`, 
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+              chat_id: process.env.SHADE_CHAT_ID,
+              text: body,
+              parse_mode: "Markdown"
+          })
+      });
     }
   });
 

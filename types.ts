@@ -7,9 +7,11 @@ type Liquidation = {
   debt_price: string,
   debt_token: string,
   debt_repaid: string,
+  debt_purchased?: string,
   collateral_price: string,
   collateral_token: string,
   collateral_liquidated: string,
+  collateral_sold?: string,
   collateral_protocol_fee?: string,
   debt_protocol_fee?: string,
 }
